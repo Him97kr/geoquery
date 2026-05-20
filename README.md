@@ -262,6 +262,14 @@ docker run -p 8080:8080 geoquery
 
 ---
 
+## 👨‍💻 Author
+
+**Himanshu**
+- GitHub: [@Him97kr](https://github.com/Him97kr)
+- LinkedIn: [Himanshu Kumar](https://in.linkedin.com/in/himanshu-kumar-518b71192)
+
+---
+
 ## 📄 License
 
 MIT License — see [LICENSE](LICENSE) for details.
