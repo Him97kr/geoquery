@@ -71,7 +71,7 @@ type outbreakResolver struct{ o fetcher.Outbreak }
 
 func (r *outbreakResolver) Title()   string  { return r.o.Title }
 func (r *outbreakResolver) Date()    *string { return strPtr(r.o.Date) }
-func (r *outbreakResolver) Url()     *string { return strPtr(r.o.URL) }
+func (r *outbreakResolver) UrlName() *string { return strPtr(r.o.UrlName) }
 func (r *outbreakResolver) Summary() *string { return strPtr(r.o.Summary) }
 
 // ── GlobalStats resolver ──────────────────────────────────────────────────────

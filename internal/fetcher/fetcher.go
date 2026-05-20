@@ -68,8 +68,7 @@ type whoResponse struct {
 	Value []struct {
 		Title                  string `json:"Title"`
 		PublicationDateAndTime string `json:"PublicationDateAndTime"`
-		Url                    string `json:"Url"`
-		UrlAlias               string `json:"UrlAlias"`
+		UrlName                string `json:"UrlName"`
 		Summary                string `json:"Summary"`
 	} `json:"value"`
 }
@@ -107,7 +106,7 @@ type CovidStats struct {
 type Outbreak struct {
 	Title   string
 	Date    string
-	URL     string
+	UrlName string
 	Summary string
 }
 
@@ -311,10 +310,6 @@ func (f *Fetcher) Outbreaks() ([]Outbreak, error) {
 
 	outbreaks := make([]Outbreak, 0, len(raw.Value))
 	for _, v := range raw.Value {
-		url := v.Url
-		if url == "" {
-			url = v.UrlAlias
-		}
 		summary := v.Summary
 		if len(summary) > 300 {
 			summary = summary[:300]
@@ -322,7 +317,7 @@ func (f *Fetcher) Outbreaks() ([]Outbreak, error) {
 		outbreaks = append(outbreaks, Outbreak{
 			Title:   v.Title,
 			Date:    v.PublicationDateAndTime,
-			URL:     url,
+			UrlName: v.UrlName,
 			Summary: summary,
 		})
 	}

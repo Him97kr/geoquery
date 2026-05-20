@@ -49,7 +49,7 @@ var schemaString = `
 	type Outbreak {
 		title:   String!
 		date:    String
-		url:     String
+		urlName: String
 		summary: String
 	}
 
