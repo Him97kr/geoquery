@@ -18,7 +18,7 @@ type Resolver struct {
 
 // ── Argument structs ──────────────────────────────────────────────────────────
 type countryArgs   struct { Name *string; Code *string }
-type countriesArgs struct { Region *string; Subregion *string; MinPop *int32; MaxPop *int32; Limit *int32 }
+type countriesArgs struct { Region *string; MinPop *int32; MaxPop *int32; Limit *int32 }
 type searchArgs    struct { Query string }
 type limitArgs     struct { Limit *int32 }
 
@@ -32,7 +32,6 @@ func (r *countryResolver) Name()       string   { return r.c.Name }
 func (r *countryResolver) Code()       string   { return r.c.Code }
 func (r *countryResolver) Capital()    *string  { return strPtr(r.c.Capital) }
 func (r *countryResolver) Region()     *string  { return strPtr(r.c.Region) }
-func (r *countryResolver) Subregion()  *string  { return strPtr(r.c.Subregion) }
 func (r *countryResolver) Population() *int32   { v := int32(r.c.Population); return &v }
 func (r *countryResolver) Density()    *float64 { return &r.c.Density }
 func (r *countryResolver) Area()       *float64 { return &r.c.Area }
@@ -116,7 +115,6 @@ func (r *Resolver) Countries(ctx context.Context, args countriesArgs) ([]*countr
 	for _, c := range all {
 		c := c
 		if args.Region != nil    && !strings.EqualFold(c.Region, *args.Region)       { continue }
-		if args.Subregion != nil && !strings.EqualFold(c.Subregion, *args.Subregion) { continue }
 		if args.MinPop != nil    && int32(c.Population) < *args.MinPop               { continue }
 		if args.MaxPop != nil    && int32(c.Population) > *args.MaxPop               { continue }
 		result = append(result, &countryResolver{c: c, fetcher: r.Fetcher})

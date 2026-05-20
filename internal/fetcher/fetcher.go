@@ -17,33 +17,36 @@ import (
 )
 
 const (
-	restCountriesURL = "https://restcountries.com/v4/all?fields=name,cca3,capital,region,subregion,population,density,area,flags,languages,currencies"
+	restCountriesURL = "https://restcountries.com/v4/all?fields=name,cca3,capital,region,population,density,area,flag,languages,currencies"
 	covidURL         = "https://disease.sh/v3/covid-19/countries?allowNull=true"
 	whoURL           = "https://www.who.int/api/news/diseaseoutbreaknews?sf_culture=en&$top=100&$orderby=PublicationDateAndTime%20desc"
 	cacheTTL         = 30 * time.Minute
 )
 
-// ── Raw API response types ────────────────────────────────────────────────────
+// ── Raw API structs ───────────────────────────────────────────────────────────
 
 type restCountry struct {
 	Name struct {
 		Common   string `json:"common"`
 		Official string `json:"official"`
 	} `json:"name"`
-	CCA3      string            `json:"cca3"`
-	Capital   []string          `json:"capital"`
-	Region    string            `json:"region"`
-	Subregion string            `json:"subregion"`
-	Population int              `json:"population"`
-	Density   float64           `json:"density"`
-	Area      float64           `json:"area"`
-	Flags     struct {
-		Emoji string `json:"emoji"`
-	} `json:"flags"`
-	Languages  map[string]string `json:"languages"`
-	Currencies map[string]struct {
-		Name string `json:"name"`
-	} `json:"currencies"`
+	CCA3      string   `json:"cca3"`
+	Capital   []string `json:"capital"`   // v4: array
+	Region    string   `json:"region"`
+	Population int     `json:"population"`
+	Density   float64  `json:"density"`
+	Area      float64  `json:"area"`
+	Flag struct {
+		Emoji string `json:"emoji"`       // v4: object with emoji field
+		PNG   string `json:"png"`
+	} `json:"flag"`
+	Languages []struct {
+		Name   string `json:"name"`
+	} `json:"languages"`  // v4: map
+	Currencies []struct {
+		Name   string `json:"name"`
+		Symbol string `json:"symbol"`
+	} `json:"currencies"` // v4: array
 }
 
 type covidCountry struct {
@@ -63,22 +66,21 @@ type covidCountry struct {
 
 type whoResponse struct {
 	Value []struct {
-		Title                   string `json:"Title"`
-		PublicationDateAndTime  string `json:"PublicationDateAndTime"`
-		Url                     string `json:"Url"`
-		UrlAlias                string `json:"UrlAlias"`
-		Summary                 string `json:"Summary"`
+		Title                  string `json:"Title"`
+		PublicationDateAndTime string `json:"PublicationDateAndTime"`
+		Url                    string `json:"Url"`
+		UrlAlias               string `json:"UrlAlias"`
+		Summary                string `json:"Summary"`
 	} `json:"value"`
 }
 
-// ── Normalised models used by resolvers ──────────────────────────────────────
+// ── Normalised models ─────────────────────────────────────────────────────────
 
 type Country struct {
 	Name       string
 	Code       string
 	Capital    string
 	Region     string
-	Subregion  string
 	Population int
 	Density    float64
 	Area       float64
@@ -109,7 +111,7 @@ type Outbreak struct {
 	Summary string
 }
 
-// ── Cache ─────────────────────────────────────────────────────────────────────
+// ── Generic cache ─────────────────────────────────────────────────────────────
 
 type cache[T any] struct {
 	mu        sync.RWMutex
@@ -139,7 +141,7 @@ func (c *cache[T]) set(data T) {
 // ── Fetcher ───────────────────────────────────────────────────────────────────
 
 type Fetcher struct {
-	client        *http.Client
+	client         *http.Client
 	countriesCache cache[[]Country]
 	covidCache     cache[[]CovidStats]
 	outbreakCache  cache[[]Outbreak]
@@ -147,7 +149,7 @@ type Fetcher struct {
 
 func New() *Fetcher {
 	return &Fetcher{
-		client: &http.Client{Timeout: 10 * time.Second},
+		client: &http.Client{Timeout: 15 * time.Second},
 	}
 }
 
@@ -161,7 +163,10 @@ func (f *Fetcher) fetchJSON(url string, target any) error {
 	if err != nil {
 		return fmt.Errorf("read body: %w", err)
 	}
-	return json.Unmarshal(body, target)
+	if err := json.Unmarshal(body, target); err != nil {
+		return fmt.Errorf("unmarshal: %w — body prefix: %.120s", err, string(body))
+	}
+	return nil
 }
 
 // ── Countries ─────────────────────────────────────────────────────────────────
@@ -178,28 +183,36 @@ func (f *Fetcher) Countries() ([]Country, error) {
 
 	countries := make([]Country, 0, len(raw))
 	for _, r := range raw {
+		// capital is []string in v4
 		capital := ""
 		if len(r.Capital) > 0 {
 			capital = r.Capital[0]
 		}
+
+		// languages is []{name} in v4
 		langs := make([]string, 0, len(r.Languages))
 		for _, v := range r.Languages {
-			langs = append(langs, v)
+			langs = append(langs, v.Name)
 		}
+
+		// currencies is []{name,symbol} in v4
 		currs := make([]string, 0, len(r.Currencies))
 		for _, v := range r.Currencies {
 			currs = append(currs, v.Name)
 		}
+
+		// flag: use emoji from flag object
+		flag := r.Flag.Emoji
+
 		countries = append(countries, Country{
 			Name:       r.Name.Common,
 			Code:       r.CCA3,
 			Capital:    capital,
 			Region:     r.Region,
-			Subregion:  r.Subregion,
 			Population: r.Population,
 			Density:    r.Density,
 			Area:       r.Area,
-			Flag:       r.Flags.Emoji,
+			Flag:       flag,
 			Languages:  langs,
 			Currencies: currs,
 		})
@@ -209,13 +222,12 @@ func (f *Fetcher) Countries() ([]Country, error) {
 	return countries, nil
 }
 
-// FindCountry finds a country by name (partial, case-insensitive) or ISO code
 func (f *Fetcher) FindCountry(name, code string) (*Country, error) {
 	countries, err := f.Countries()
 	if err != nil {
 		return nil, err
 	}
-	q := strings.ToLower(strings.TrimSpace(name))
+	q  := strings.ToLower(strings.TrimSpace(name))
 	qc := strings.ToUpper(strings.TrimSpace(code))
 
 	for i, c := range countries {
@@ -294,8 +306,7 @@ func (f *Fetcher) Outbreaks() ([]Outbreak, error) {
 
 	var raw whoResponse
 	if err := f.fetchJSON(whoURL, &raw); err != nil {
-		// WHO API is optional — return empty gracefully
-		return []Outbreak{}, nil
+		return []Outbreak{}, nil // WHO is optional
 	}
 
 	outbreaks := make([]Outbreak, 0, len(raw.Value))
@@ -328,9 +339,8 @@ func (f *Fetcher) FindOutbreaks(countryName string) ([]Outbreak, error) {
 	q := strings.ToLower(strings.TrimSpace(countryName))
 	var result []Outbreak
 	for _, o := range all {
-		title   := strings.ToLower(o.Title)
-		summary := strings.ToLower(o.Summary)
-		if strings.Contains(title, q) || strings.Contains(summary, q) {
+		if strings.Contains(strings.ToLower(o.Title), q) ||
+			strings.Contains(strings.ToLower(o.Summary), q) {
 			result = append(result, o)
 			if len(result) >= 5 {
 				break

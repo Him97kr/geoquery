@@ -15,7 +15,7 @@
 - **COVID-19 statistics** — cases, deaths, active, critical, per-million rates
 - **WHO outbreak alerts** — live disease outbreak news filtered by country
 - **Global stats** — most populated, highest density, most COVID cases
-- **Smart filtering** — filter countries by region, subregion, population range
+- **Smart filtering** — filter countries by region, population range
 - **30-minute cache** — fast repeated queries without hammering APIs
 - **GraphiQL playground** — interactive API explorer built in
 
@@ -48,7 +48,7 @@ Open your browser at `http://localhost:8080/playground`
 
 The playground is available at `/playground` — use it to explore and test all queries interactively.
 
-![Playground Screenshot](screenshots/playground.png)
+![Playground Screenshot](public/playground.png)
 
 ---
 

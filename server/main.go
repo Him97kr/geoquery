@@ -21,7 +21,6 @@ var schemaString = `
 		code:       String!
 		capital:    String
 		region:     String
-		subregion:  String
 		population: Int
 		density:    Float
 		area:       Float
@@ -68,7 +67,7 @@ var schemaString = `
 
 	type Query {
 		country(name: String, code: String): Country
-		countries(region: String, subregion: String, minPop: Int, maxPop: Int, limit: Int): [Country!]!
+		countries(region: String, minPop: Int, maxPop: Int, limit: Int): [Country!]!
 		searchCountries(query: String!): [Country!]!
 		globalStats: GlobalStats!
 		topByPopulation(limit: Int): [Country!]!
