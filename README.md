@@ -1,6 +1,6 @@
 # 🌐 GeoQuery — GraphQL API for Country Intelligence
 
-> A GraphQL API built with Go that serves country demographics, COVID-19 statistics, and WHO disease outbreak alerts — the same data powering the [GeoVitals Chrome Extension](https://github.com/Him97kr/geovitals).
+> A GraphQL API built with Go that serves country demographics, COVID-19 statistics, and WHO disease outbreak alerts — the same data powering the [GeoVitals Chrome Extension](https://github.com/Him97kr/chrome-extension-geovitals).
 
 [![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go&logoColor=white)](https://golang.org)
 [![GraphQL](https://img.shields.io/badge/GraphQL-API-E10098?logo=graphql&logoColor=white)](https://graphql.org)
@@ -247,7 +247,7 @@ docker run -p 8080:8080 geoquery
 
 | Project | Description |
 |---|---|
-| [GeoVitals](https://github.com/Him97kr/geovitals) | Chrome extension that uses this data |
+| [GeoVitals](https://github.com/Him97kr/chrome-extension-geovitals) | Chrome extension that uses this data |
 | [World Population Dashboard](https://github.com/Him97kr/world-population-dashboard) | D3.js data visualisation |
 
 ---
