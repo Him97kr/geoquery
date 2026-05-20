@@ -67,7 +67,7 @@ The playground is available at `/playground` — use it to explore and test all 
 ### Single Country
 ```graphql
 {
-  country(name: "India") {
+  country(name: "China") {
     name
     flag
     population
@@ -84,7 +84,7 @@ The playground is available at `/playground` — use it to explore and test all 
     outbreaks {
       title
       date
-      url
+      urlName
     }
   }
 }
@@ -180,7 +180,7 @@ The playground is available at `/playground` — use it to explore and test all 
     outbreaks {
       title
       date
-      url
+      urlName
     }
   }
 }
