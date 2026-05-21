@@ -7,6 +7,7 @@ package resolver
 import (
 	"context"
 	"strings"
+	"fmt"
 
 	"github.com/Him97kr/geoquery/internal/fetcher"
 )
@@ -77,7 +78,7 @@ func (r *outbreakResolver) Summary() *string { return strPtr(r.o.Summary) }
 // ── GlobalStats resolver ──────────────────────────────────────────────────────
 type globalStatsResolver struct {
 	totalCountries   int32
-	totalPopulation  int32
+	totalPopulation  int64
 	totalCovidCases  int32
 	totalCovidDeaths int32
 	totalActive      int32
@@ -88,7 +89,7 @@ type globalStatsResolver struct {
 }
 
 func (r *globalStatsResolver) TotalCountries()   int32            { return r.totalCountries }
-func (r *globalStatsResolver) TotalPopulation()  int32            { return r.totalPopulation }
+func (r *globalStatsResolver) TotalPopulation()  string           { return fmt.Sprintf("%d", r.totalPopulation) }
 func (r *globalStatsResolver) TotalCovidCases()  int32            { return r.totalCovidCases }
 func (r *globalStatsResolver) TotalCovidDeaths() int32            { return r.totalCovidDeaths }
 func (r *globalStatsResolver) TotalActive()      int32            { return r.totalActive }
@@ -147,12 +148,13 @@ func (r *Resolver) GlobalStats(ctx context.Context) (*globalStatsResolver, error
 		covidMap[strings.ToLower(s.Country)] = &covidStats[i]
 	}
 
-	var totalPop, totalCases, totalDeaths, totalActive int32
+	var totalPop int64
+	var totalCases, totalDeaths, totalActive int32
 	var mostPop, leastPop, highDensity, mostCovid *fetcher.Country
 
 	for i, c := range countries {
 		c := c
-		totalPop += int32(c.Population)
+		totalPop += int64(c.Population)
 		if mostPop == nil || c.Population > mostPop.Population                         { mostPop = &countries[i] }
 		if leastPop == nil || (c.Population > 0 && c.Population < leastPop.Population) { leastPop = &countries[i] }
 		if highDensity == nil || c.Density > highDensity.Density                       { highDensity = &countries[i] }

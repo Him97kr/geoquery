@@ -55,7 +55,7 @@ var schemaString = `
 
 	type GlobalStats {
 		totalCountries:   Int!
-		totalPopulation:  Int!
+		totalPopulation:  String!
 		totalCovidCases:  Int!
 		totalCovidDeaths: Int!
 		totalActive:      Int!
