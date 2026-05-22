@@ -27,6 +27,7 @@ type limitArgs     struct { Limit *int32 }
 type countryResolver struct {
 	c       fetcher.Country
 	fetcher *fetcher.Fetcher
+	cachedCovid  *fetcher.CovidStats // pre-resolved covid (used by TopByCovid)
 }
 
 func (r *countryResolver) Name()       string   { return r.c.Name }
@@ -41,6 +42,10 @@ func (r *countryResolver) Languages()  []string { return r.c.Languages }
 func (r *countryResolver) Currencies() []string { return r.c.Currencies }
 
 func (r *countryResolver) Covid() *covidResolver {
+	// Use pre-resolved covid if available (avoids re-lookup issues)
+	if r.cachedCovid != nil {
+		return &covidResolver{s: *r.cachedCovid}
+	}
 	stats, _ := r.fetcher.FindCovid(r.c.Name)
 	if stats == nil { return nil }
 	return &covidResolver{s: *stats}
@@ -222,10 +227,13 @@ func (r *Resolver) TopByCovid(ctx context.Context, args limitArgs) ([]*countryRe
 	}
 	result := make([]*countryResolver, 0, n)
 	for i := 0; i < n && i < len(sorted); i++ {
-		found, _ := r.Fetcher.FindCountry(sorted[i].Country, "")
-		if found != nil {
-			result = append(result, &countryResolver{c: *found, fetcher: r.Fetcher})
-		}
+		cv := sorted[i]
+		found, _ := r.Fetcher.FindCountry(cv.Country, "")
+		if found == nil { continue }
+		// Store covid stats directly in a pre-resolved cache on the resolver
+		// so Covid() field resolver returns this exact entry, not a re-lookup
+		cr := &countryResolver{c: *found, fetcher: r.Fetcher, cachedCovid: &cv}
+		result = append(result, cr)
 	}
 	return result, nil
 }

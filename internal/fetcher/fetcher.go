@@ -229,15 +229,48 @@ func (f *Fetcher) FindCountry(name, code string) (*Country, error) {
 	q  := strings.ToLower(strings.TrimSpace(name))
 	qc := strings.ToUpper(strings.TrimSpace(code))
 
-	for i, c := range countries {
-		if qc != "" && strings.EqualFold(c.Code, qc) {
-			return &countries[i], nil
-		}
-		if q != "" {
-			cname := strings.ToLower(c.Name)
-			if cname == q || strings.Contains(cname, q) || strings.Contains(q, cname) {
+	// Pass 1 — exact ISO code match
+	if qc != "" {
+		for i, c := range countries {
+			if strings.EqualFold(c.Code, qc) {
 				return &countries[i], nil
 			}
+		}
+	}
+
+	if q == "" {
+		return nil, nil
+	}
+
+	// Pass 2 — exact name match
+	for i, c := range countries {
+		if strings.ToLower(c.Name) == q {
+			return &countries[i], nil
+		}
+	}
+
+	// Pass 3 — country name starts with query
+	// "india" matches "India" before "British Indian Ocean Territory"
+	for i, c := range countries {
+		if strings.HasPrefix(strings.ToLower(c.Name), q) {
+			return &countries[i], nil
+		}
+	}
+
+	// Pass 4 — query covers >50% of country name length
+	for i, c := range countries {
+		cname := strings.ToLower(c.Name)
+		if len(q) >= 4 && strings.Contains(cname, q) &&
+			float64(len(q))/float64(len(cname)) > 0.5 {
+			return &countries[i], nil
+		}
+	}
+
+	// Pass 5 — country name contained within query string
+	for i, c := range countries {
+		cname := strings.ToLower(c.Name)
+		if len(cname) >= 4 && strings.Contains(q, cname) {
+			return &countries[i], nil
 		}
 	}
 	return nil, nil
@@ -287,12 +320,46 @@ func (f *Fetcher) FindCovid(countryName string) (*CovidStats, error) {
 		return nil, err
 	}
 	q := strings.ToLower(strings.TrimSpace(countryName))
+
+	// Pass 1 — exact match
 	for i, s := range stats {
-		name := strings.ToLower(s.Country)
-		if name == q || strings.Contains(name, q) || strings.Contains(q, name) {
+		if strings.ToLower(s.Country) == q {
 			return &stats[i], nil
 		}
 	}
+
+	// Pass 2 — disease.sh name starts with query
+	for i, s := range stats {
+		if strings.HasPrefix(strings.ToLower(s.Country), q) {
+			return &stats[i], nil
+		}
+	}
+
+	// Pass 3 — query starts with disease.sh name (e.g. "united states of america" starts with "usa")
+	for i, s := range stats {
+		name := strings.ToLower(s.Country)
+		if strings.HasPrefix(q, name) && len(name) >= 4 {
+			return &stats[i], nil
+		}
+	}
+
+	// Pass 4 — query covers >60% of disease.sh name
+	for i, s := range stats {
+		name := strings.ToLower(s.Country)
+		if len(q) >= 4 && strings.Contains(name, q) &&
+			float64(len(q))/float64(len(name)) > 0.6 {
+			return &stats[i], nil
+		}
+	}
+
+	// Pass 5 — disease.sh name contained within query and long enough
+	for i, s := range stats {
+		name := strings.ToLower(s.Country)
+		if len(name) >= 5 && strings.Contains(q, name) {
+			return &stats[i], nil
+		}
+	}
+
 	return nil, nil
 }
 
