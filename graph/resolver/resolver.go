@@ -42,11 +42,12 @@ func (r *countryResolver) Languages()  []string { return r.c.Languages }
 func (r *countryResolver) Currencies() []string { return r.c.Currencies }
 
 func (r *countryResolver) Covid() *covidResolver {
-	// Use pre-resolved covid if available (avoids re-lookup issues)
+	// Use pre-resolved covid if available (set by TopByCovid)
 	if r.cachedCovid != nil {
 		return &covidResolver{s: *r.cachedCovid}
 	}
-	stats, _ := r.fetcher.FindCovid(r.c.Name)
+	// Pass ISO3 code first — avoids name mismatch for USA, GBR, UAE, PRK, KOR etc.
+	stats, _ := r.fetcher.FindCovidByCode(r.c.Code, r.c.Name)
 	if stats == nil { return nil }
 	return &covidResolver{s: *stats}
 }
@@ -228,10 +229,14 @@ func (r *Resolver) TopByCovid(ctx context.Context, args limitArgs) ([]*countryRe
 	result := make([]*countryResolver, 0, n)
 	for i := 0; i < n && i < len(sorted); i++ {
 		cv := sorted[i]
-		found, _ := r.Fetcher.FindCountry(cv.Country, "")
+		// Use ISO3 code from disease.sh for reliable REST Countries lookup
+		// Fixes: USA→United States, GBR→United Kingdom, UAE, PRK, KOR etc.
+		found, _ := r.Fetcher.FindCountry("", cv.ISO3Code)
+		if found == nil {
+			// Fallback to name if ISO3 not found
+			found, _ = r.Fetcher.FindCountry(cv.Country, "")
+		}
 		if found == nil { continue }
-		// Store covid stats directly in a pre-resolved cache on the resolver
-		// so Covid() field resolver returns this exact entry, not a re-lookup
 		cr := &countryResolver{c: *found, fetcher: r.Fetcher, cachedCovid: &cv}
 		result = append(result, cr)
 	}

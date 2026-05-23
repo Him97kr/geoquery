@@ -50,7 +50,10 @@ type restCountry struct {
 }
 
 type covidCountry struct {
-	Country          string  `json:"country"`
+	Country     string `json:"country"`
+	CountryInfo struct {
+		ISO3 string `json:"iso3"` // e.g. "USA", "GBR", "PRK"
+	} `json:"countryInfo"`
 	Cases            int     `json:"cases"`
 	TodayCases       int     `json:"todayCases"`
 	Deaths           int     `json:"deaths"`
@@ -90,6 +93,7 @@ type Country struct {
 
 type CovidStats struct {
 	Country          string
+	ISO3Code         string  // ISO alpha3 from disease.sh countryInfo.iso3
 	Cases            int
 	TodayCases       int
 	Deaths           int
@@ -296,6 +300,7 @@ func (f *Fetcher) CovidStats() ([]CovidStats, error) {
 		}
 		stats = append(stats, CovidStats{
 			Country:          r.Country,
+			ISO3Code:         r.CountryInfo.ISO3,
 			Cases:            r.Cases,
 			TodayCases:       r.TodayCases,
 			Deaths:           r.Deaths,
@@ -315,27 +320,48 @@ func (f *Fetcher) CovidStats() ([]CovidStats, error) {
 }
 
 func (f *Fetcher) FindCovid(countryName string) (*CovidStats, error) {
+	return f.FindCovidByCode("", countryName)
+}
+
+// FindCovidByCode looks up COVID stats by ISO3 code first, then falls back to name matching.
+func (f *Fetcher) FindCovidByCode(iso3, countryName string) (*CovidStats, error) {
 	stats, err := f.CovidStats()
 	if err != nil {
 		return nil, err
 	}
+
+	// Pass 1 — exact ISO3 code match (most reliable — avoids all name mismatch issues)
+	// Covers: USA, GBR, UAE, PRK, KOR, etc.
+	if iso3 != "" {
+		code := strings.ToUpper(strings.TrimSpace(iso3))
+		for i, s := range stats {
+			if strings.EqualFold(s.ISO3Code, code) {
+				return &stats[i], nil
+			}
+		}
+	}
+
+	if countryName == "" {
+		return nil, nil
+	}
+
 	q := strings.ToLower(strings.TrimSpace(countryName))
 
-	// Pass 1 — exact match
+	// Pass 2 — exact name match
 	for i, s := range stats {
 		if strings.ToLower(s.Country) == q {
 			return &stats[i], nil
 		}
 	}
 
-	// Pass 2 — disease.sh name starts with query
+	// Pass 3 — disease.sh name starts with query
 	for i, s := range stats {
 		if strings.HasPrefix(strings.ToLower(s.Country), q) {
 			return &stats[i], nil
 		}
 	}
 
-	// Pass 3 — query starts with disease.sh name (e.g. "united states of america" starts with "usa")
+	// Pass 4 — query starts with disease.sh name
 	for i, s := range stats {
 		name := strings.ToLower(s.Country)
 		if strings.HasPrefix(q, name) && len(name) >= 4 {
@@ -343,7 +369,7 @@ func (f *Fetcher) FindCovid(countryName string) (*CovidStats, error) {
 		}
 	}
 
-	// Pass 4 — query covers >60% of disease.sh name
+	// Pass 5 — query covers >60% of name
 	for i, s := range stats {
 		name := strings.ToLower(s.Country)
 		if len(q) >= 4 && strings.Contains(name, q) &&
@@ -352,13 +378,13 @@ func (f *Fetcher) FindCovid(countryName string) (*CovidStats, error) {
 		}
 	}
 
-	// Pass 5 — disease.sh name contained within query and long enough
-	for i, s := range stats {
-		name := strings.ToLower(s.Country)
-		if len(name) >= 5 && strings.Contains(q, name) {
-			return &stats[i], nil
-		}
-	}
+	// Pass 6 — name inside query - not required right now
+	// for i, s := range stats {
+	// 	name := strings.ToLower(s.Country)
+	// 	if len(name) >= 5 && strings.Contains(q, name) {
+	// 		return &stats[i], nil
+	// 	}
+	// }
 
 	return nil, nil
 }
