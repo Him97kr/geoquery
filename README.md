@@ -8,6 +8,12 @@
 
 ---
 
+## 🌐 Live
+- GraphQL Playground: https://geoquery-production.up.railway.app/playground
+- Frontend: https://him97kr.github.io/geoquery-dashboard
+
+---
+
 ## ✨ Features
 
 - **GraphQL API** — flexible queries, get exactly the data you need
