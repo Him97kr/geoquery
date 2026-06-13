@@ -1,6 +1,6 @@
 // internal/fetcher/fetcher.go
 // Fetches and caches data from:
-//   - REST Countries v4 API  (population, density, region, etc.)
+//   - jsDelivr CDN (Him97kr/rest-countries-data)  (population, density, region, etc.)
 //   - disease.sh API         (COVID-19 stats)
 //   - WHO Outbreak News API  (disease alerts)
 
@@ -9,6 +9,7 @@ package fetcher
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"io"
 	"net/http"
 	"strings"
@@ -17,7 +18,7 @@ import (
 )
 
 const (
-	restCountriesURL = "https://restcountries.com/v4/all?fields=name,cca3,capital,region,population,density,area,flag,languages,currencies"
+	restCountriesURL = "https://cdn.jsdelivr.net/gh/Him97kr/rest-countries-data/allcountries.json"
 	covidURL         = "https://disease.sh/v3/covid-19/countries?allowNull=true"
 	whoURL           = "https://www.who.int/api/news/diseaseoutbreaknews?sf_culture=en&$top=100&$orderby=PublicationDateAndTime%20desc"
 	cacheTTL         = 30 * time.Minute
@@ -25,28 +26,42 @@ const (
 
 // ── Raw API structs ───────────────────────────────────────────────────────────
 
+// cdnResponse is the root wrapper from the jsDelivr CDN JSON.
+type cdnResponse struct {
+	CountryData []restCountry `json:"countryData"`
+}
+
 type restCountry struct {
-	Name struct {
+	Names struct {
 		Common   string `json:"common"`
 		Official string `json:"official"`
-	} `json:"name"`
-	CCA3      string   `json:"cca3"`
-	Capital   []string `json:"capital"`   // v4: array
-	Region    string   `json:"region"`
-	Population int     `json:"population"`
-	Density   float64  `json:"density"`
-	Area      float64  `json:"area"`
+	} `json:"names"`
+	Codes struct {
+		Alpha2 string `json:"alpha_2"`
+		Alpha3 string `json:"alpha_3"`
+	} `json:"codes"`
+	Capitals []struct {
+		Name string `json:"name"`
+	} `json:"capitals"`
+	Region     string `json:"region"`
+	Population int    `json:"population"`
+	Area       struct {
+		Kilometers float64 `json:"kilometers"`
+		Miles      float64 `json:"miles"`
+	} `json:"area"`
 	Flag struct {
-		Emoji string `json:"emoji"`       // v4: object with emoji field
-		PNG   string `json:"png"`
+		Emoji  string `json:"emoji"`
+		UrlPNG string `json:"url_png"`
+		UrlSVG string `json:"url_svg"`
 	} `json:"flag"`
 	Languages []struct {
-		Name   string `json:"name"`
-	} `json:"languages"`  // v4: map
+		Name string `json:"name"`
+	} `json:"languages"`
 	Currencies []struct {
+		Code   string `json:"code"`
 		Name   string `json:"name"`
 		Symbol string `json:"symbol"`
-	} `json:"currencies"` // v4: array
+	} `json:"currencies"`
 }
 
 type covidCountry struct {
@@ -179,43 +194,45 @@ func (f *Fetcher) Countries() ([]Country, error) {
 		return data, nil
 	}
 
-	var raw []restCountry
-	if err := f.fetchJSON(restCountriesURL, &raw); err != nil {
+	var cdnData cdnResponse
+	if err := f.fetchJSON(restCountriesURL, &cdnData); err != nil {
 		return nil, err
 	}
+	raw := cdnData.CountryData
 
 	countries := make([]Country, 0, len(raw))
 	for _, r := range raw {
-		// capital is []string in v4
+		// capitals is [{name}] in CDN
 		capital := ""
-		if len(r.Capital) > 0 {
-			capital = r.Capital[0]
+		if len(r.Capitals) > 0 {
+			capital = r.Capitals[0].Name
 		}
 
-		// languages is []{name} in v4
 		langs := make([]string, 0, len(r.Languages))
 		for _, v := range r.Languages {
 			langs = append(langs, v.Name)
 		}
 
-		// currencies is []{name,symbol} in v4
 		currs := make([]string, 0, len(r.Currencies))
 		for _, v := range r.Currencies {
 			currs = append(currs, v.Name)
 		}
 
-		// flag: use emoji from flag object
-		flag := r.Flag.Emoji
+		// density is not provided by CDN — compute from population / area.kilometers
+		var density float64
+		if r.Area.Kilometers > 0 {
+			density = math.Round(float64(r.Population) / r.Area.Kilometers*100) / 100 // round to 2 decimals
+		}
 
 		countries = append(countries, Country{
-			Name:       r.Name.Common,
-			Code:       r.CCA3,
+			Name:       r.Names.Common,
+			Code:       r.Codes.Alpha3,
 			Capital:    capital,
 			Region:     r.Region,
 			Population: r.Population,
-			Density:    r.Density,
-			Area:       r.Area,
-			Flag:       flag,
+			Density:    density,
+			Area:       r.Area.Kilometers,
+			Flag:       r.Flag.Emoji,
 			Languages:  langs,
 			Currencies: currs,
 		})
