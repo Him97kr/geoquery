@@ -200,7 +200,7 @@ All APIs are **free** and require **no API key**.
 
 | API | Data | URL |
 |---|---|---|
-| REST Countries v4 | Demographics | `restcountries.com` |
+| REST Countries v5 | Demographics | `restcountries.com` |
 | disease.sh | COVID-19 stats | `disease.sh` |
 | WHO Outbreak News | Disease alerts | `who.int` |
 
