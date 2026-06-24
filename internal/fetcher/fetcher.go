@@ -232,7 +232,7 @@ func (f *Fetcher) Countries() ([]Country, error) {
 			Population: r.Population,
 			Density:    density,
 			Area:       r.Area.Kilometers,
-			Flag:       r.Flag.Emoji,
+			Flag:       r.Flag.UrlSVG,
 			Languages:  langs,
 			Currencies: currs,
 		})
