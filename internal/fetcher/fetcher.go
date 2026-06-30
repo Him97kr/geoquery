@@ -18,10 +18,11 @@ import (
 )
 
 const (
-	restCountriesURL = "https://cdn.jsdelivr.net/gh/Him97kr/rest-countries-data/allcountries.json"
-	covidURL         = "https://disease.sh/v3/covid-19/countries?allowNull=true"
-	whoURL           = "https://www.who.int/api/news/diseaseoutbreaknews?sf_culture=en&$top=100&$orderby=PublicationDateAndTime%20desc"
-	cacheTTL         = 30 * time.Minute
+	restCountriesURLPrimary  = "https://cdn.jsdelivr.net/gh/Him97kr/rest-countries-data/allcountries.json"
+	restCountriesURLFallback = "https://raw.githubusercontent.com/Him97kr/rest-countries-data/main/allcountries.json"
+	covidURL                 = "https://disease.sh/v3/covid-19/countries?allowNull=true"
+	whoURL                   = "https://www.who.int/api/news/diseaseoutbreaknews?sf_culture=en&$top=100&$orderby=PublicationDateAndTime%20desc"
+	cacheTTL                 = 30 * time.Minute
 )
 
 // ── Raw API structs ───────────────────────────────────────────────────────────
@@ -177,12 +178,18 @@ func (f *Fetcher) fetchJSON(url string, target any) error {
 		return fmt.Errorf("fetch %s: %w", url, err)
 	}
 	defer resp.Body.Close()
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("read body: %w", err)
+		return fmt.Errorf("read body %s: %w", url, err)
 	}
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("fetch %s: unexpected status %d, body prefix: %.150s", url, resp.StatusCode, string(body))
+	}
+
 	if err := json.Unmarshal(body, target); err != nil {
-		return fmt.Errorf("unmarshal: %w — body prefix: %.120s", err, string(body))
+		return fmt.Errorf("unmarshal %s: %w — body prefix: %.120s", url, err, string(body))
 	}
 	return nil
 }
@@ -195,8 +202,13 @@ func (f *Fetcher) Countries() ([]Country, error) {
 	}
 
 	var cdnData cdnResponse
-	if err := f.fetchJSON(restCountriesURL, &cdnData); err != nil {
-		return nil, err
+	err := f.fetchJSON(restCountriesURLPrimary, &cdnData)
+	if err != nil {
+		// jsDelivr can 503 with "first byte timeout" when its cache
+		// needs to re-fetch from the GitHub origin — fall back to raw.
+		if fallbackErr := f.fetchJSON(restCountriesURLFallback, &cdnData); fallbackErr != nil {
+			return nil, fmt.Errorf("primary failed: %w; fallback failed: %v", err, fallbackErr)
+		}
 	}
 	raw := cdnData.CountryData
 
